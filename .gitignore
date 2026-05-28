@@ -1,0 +1,30 @@
+# Build outputs
+bin/
+release/
+
+# Config files with secrets (never commit)
+*.yaml
+!configs/*.yaml
+!configs/*.example.yaml
+
+# Identity and registry files (contain private keys)
+*.json
+!deploy/**/*.json
+
+# Test artifacts
+*.test
+*.bench
+/tmp/
+coverage.out
+cpu.prof
+mem.prof
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db

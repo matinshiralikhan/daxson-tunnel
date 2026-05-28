@@ -1,0 +1,44 @@
+mode: client
+
+proxy:
+  socks5: "127.0.0.1:1080"
+  http: "127.0.0.1:8080"
+
+tunnel:
+  # Direct mode: connect to foreign VPS directly.
+  addr: "yourdomain.com:443"
+  # Relay mode: connect to Iran relay instead.
+  # addr: "iran-relay.example.com:443"
+  tls:
+    server_name: "yourdomain.com"
+    # chrome | firefox | edge | safari | random
+    fingerprint: "chrome"
+    next_protos:
+      - h2
+      - http/1.1
+  auth:
+    psk: "REPLACE_WITH_HIGH_ENTROPY_PSK_AT_LEAST_32_CHARS"
+  transport:
+    obfs:
+      enabled: true
+      max_padding: 256
+      write_jitter_max_ms: 8
+      keepalive_interval: "60s"
+      keepalive_jitter: "15s"
+    mux:
+      max_streams: 512
+      max_frame_size: 32768
+      receive_buffer: 4194304
+  reconnect:
+    enabled: true
+    max_retries: -1        # -1 = retry forever
+    base_delay: "1s"
+    max_delay: "60s"
+    multiplier: 2.0
+
+metrics:
+  listen: "127.0.0.1:9091"
+
+logging:
+  level: info
+  format: console

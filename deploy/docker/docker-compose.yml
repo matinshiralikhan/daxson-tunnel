@@ -1,0 +1,91 @@
+version: "3.9"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Daxson Tunnel — Docker Compose environment
+#
+# Services:
+#   daxsond   – the tunnel server
+#   nginx     – serves real web content for unauthenticated (probe) connections
+#   prometheus – scrapes daxsond metrics
+#   grafana   – visualises metrics
+#
+# Quickstart:
+#   1. Copy configs/server.example.yaml → ./config/server.yaml, set PSK + cert paths
+#   2. Place TLS certs in ./certs/ (Let's Encrypt recommended)
+#   3. docker compose up -d
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── Tunnel server ───────────────────────────────────────────────────────────
+  daxsond:
+    image: ghcr.io/daxson/tunnel:latest
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    container_name: daxsond
+    restart: unless-stopped
+    network_mode: host           # needed for low-latency port 443
+    volumes:
+      - ./config:/etc/daxson:ro
+      - ./certs:/etc/daxson/certs:ro
+    command: ["daxsond", "--config", "/etc/daxson/server.yaml"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ── Nginx (real-content probe defence) ─────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: daxson-nginx
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80"     # only accessible by daxsond probe_upstream
+    volumes:
+      - ./nginx/html:/usr/share/nginx/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+
+  # ── Prometheus ───────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: daxson-prometheus
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+
+  # ── Grafana ──────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: daxson-grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=changeme
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_data:
+  grafana_data:

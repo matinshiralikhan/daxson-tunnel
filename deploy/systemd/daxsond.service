@@ -1,0 +1,43 @@
+[Unit]
+Description=Daxson Tunnel Server
+Documentation=https://github.com/daxson/tunnel
+After=network-online.target
+Wants=network-online.target
+# If you use nginx as probe upstream:
+After=nginx.service
+
+[Service]
+Type=simple
+User=daxson
+Group=daxson
+
+ExecStart=/usr/local/bin/daxsond --config /etc/daxson/server.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Restart aggressively — availability is critical in hostile environments.
+Restart=on-failure
+RestartSec=5s
+StartLimitBurst=10
+StartLimitIntervalSec=60
+
+# Hard limits — prevent runaway memory usage.
+LimitNOFILE=131072
+LimitNPROC=8192
+
+# Security hardening.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/daxson
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+# Logging to journald.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daxsond
+
+[Install]
+WantedBy=multi-user.target

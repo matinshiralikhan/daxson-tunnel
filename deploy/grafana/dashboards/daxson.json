@@ -1,0 +1,72 @@
+{
+  "title": "Daxson Tunnel",
+  "uid": "daxson-tunnel-v1",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active Streams",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [{"expr": "daxson_streams_active", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background"}
+    },
+    {
+      "id": 2,
+      "title": "Active Sessions",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [{"expr": "daxson_sessions_active", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background"}
+    },
+    {
+      "id": 3,
+      "title": "Reconnects / min",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "targets": [{"expr": "rate(daxson_reconnects_total[1m]) * 60", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background"}
+    },
+    {
+      "id": 4,
+      "title": "Auth Failures / min",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "targets": [{"expr": "rate(daxson_auth_failures_total[1m]) * 60", "refId": "A"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background"}
+    },
+    {
+      "id": 5,
+      "title": "Connections Rate",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [
+        {"expr": "rate(daxson_connections_total{direction=\"inbound\"}[1m])", "legendFormat": "inbound", "refId": "A"},
+        {"expr": "rate(daxson_connections_total{direction=\"outbound\"}[1m])", "legendFormat": "outbound", "refId": "B"}
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Bytes Transferred",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [
+        {"expr": "rate(daxson_bytes_sent_total[1m])", "legendFormat": "sent", "refId": "A"},
+        {"expr": "rate(daxson_bytes_recv_total[1m])", "legendFormat": "received", "refId": "B"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "Bps"}}
+    },
+    {
+      "id": 7,
+      "title": "Proxy Accepts by Type",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "targets": [
+        {"expr": "rate(daxson_proxy_accepts_total[1m])", "legendFormat": "{{proxy_type}}", "refId": "A"}
+      ]
+    }
+  ],
+  "time": {"from": "now-1h", "to": "now"},
+  "refresh": "30s"
+}

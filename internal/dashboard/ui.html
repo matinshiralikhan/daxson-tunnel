@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daxson</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--green:#3fb950;--yellow:#d29922;--red:#f85149;--blue:#58a6ff;--accent:#1f6feb}
+body{font:13px/1.6 'SF Mono','Fira Code','Consolas',monospace;background:var(--bg);color:var(--text);display:flex;min-height:100vh}
+aside{width:200px;min-height:100vh;background:var(--bg2);border-right:1px solid var(--border);padding:16px 0;flex-shrink:0}
+.logo{padding:0 16px 16px;font-size:15px;font-weight:700;letter-spacing:2px;color:var(--blue)}
+.logo span{color:var(--muted);font-size:10px;display:block;letter-spacing:0;font-weight:400;margin-top:2px}
+nav a{display:block;padding:8px 16px;color:var(--muted);text-decoration:none;transition:all .15s;border-left:2px solid transparent}
+nav a:hover{color:var(--text);background:var(--bg3)}
+nav a.active{color:var(--text);border-left-color:var(--blue);background:var(--bg3)}
+main{flex:1;padding:24px;overflow:auto}
+h2{font-size:14px;font-weight:600;margin-bottom:16px;color:var(--text)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.stat-value{font-size:22px;font-weight:700;margin-top:4px}
+.stat-value.green{color:var(--green)}
+.stat-value.blue{color:var(--blue)}
+.stat-value.yellow{color:var(--yellow)}
+.stat-value.red{color:var(--red)}
+table{width:100%;border-collapse:collapse;background:var(--bg2);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+th{text-align:left;padding:10px 12px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);background:var(--bg3)}
+td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg3)}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.badge.ok{background:#1a3a1a;color:var(--green)}
+.badge.warn{background:#3a2a00;color:var(--yellow)}
+.badge.err{background:#3a1a1a;color:var(--red)}
+.badge.muted{background:var(--bg3);color:var(--muted)}
+button{padding:4px 10px;font:inherit;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;cursor:pointer;transition:background .15s}
+button:hover{background:var(--accent);border-color:var(--accent)}
+button.danger{background:#3a1a1a;border-color:var(--red);color:var(--red)}
+button.danger:hover{background:var(--red);color:#fff}
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.toolbar input{padding:6px 10px;font:inherit;font-size:12px;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:4px;width:200px}
+.empty{color:var(--muted);text-align:center;padding:32px;font-size:12px}
+.section{margin-bottom:32px}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--bg3);border:1px solid var(--border);padding:10px 16px;border-radius:6px;font-size:12px;opacity:0;transition:opacity .3s;pointer-events:none}
+#toast.show{opacity:1}
+.pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;background:var(--bg3);color:var(--muted)}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo">DAXSON<span id="ver">management</span></div>
+  <nav>
+    <a href="#" data-page="overview" class="active">Overview</a>
+    <a href="#" data-page="sessions">Sessions</a>
+    <a href="#" data-page="devices">Devices</a>
+    <a href="#" data-page="invites">Invites</a>
+    <a href="#" data-page="analytics">Analytics</a>
+    <a href="#" data-page="probes">Probe log</a>
+  </nav>
+</aside>
+<main id="root"></main>
+<div id="toast"></div>
+
+<script>
+const API = '';
+let currentPage = 'overview';
+let refreshTimer = null;
+
+// ── Routing ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('nav a').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('nav a').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    currentPage = a.dataset.page;
+    render();
+  });
+});
+
+async function render() {
+  clearTimeout(refreshTimer);
+  try {
+    const fn = pages[currentPage];
+    if (fn) await fn();
+  } catch(e) {
+    document.getElementById('root').innerHTML = `<div class="empty">${e.message}</div>`;
+  }
+  refreshTimer = setTimeout(render, 3000);
+}
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+async function get(path) {
+  const r = await fetch(API + path);
+  if (!r.ok) throw new Error('API error: ' + r.status);
+  return r.json();
+}
+async function del(path) {
+  const r = await fetch(API + path, {method:'DELETE'});
+  if (!r.ok) throw new Error('API error: ' + r.status);
+  return r.json();
+}
+async function post(path, body) {
+  const r = await fetch(API + path, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if (!r.ok) throw new Error('API error: ' + r.status);
+  return r.json();
+}
+
+function toast(msg, ok=true) {
+  const t = document.getElementById('toast');
+  t.textContent = (ok ? '✓ ' : '✗ ') + msg;
+  t.style.color = ok ? 'var(--green)' : 'var(--red)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function bytes(n) {
+  if (n < 1024) return n+'B';
+  if (n < 1048576) return (n/1024).toFixed(1)+'KB';
+  if (n < 1073741824) return (n/1048576).toFixed(1)+'MB';
+  return (n/1073741824).toFixed(2)+'GB';
+}
+function ago(ts) {
+  const d = (Date.now() - new Date(ts))/1000;
+  if (d < 60) return Math.round(d)+'s ago';
+  if (d < 3600) return Math.round(d/60)+'m ago';
+  if (d < 86400) return Math.round(d/3600)+'h ago';
+  return Math.round(d/86400)+'d ago';
+}
+function dur(ts) {
+  const d = (Date.now() - new Date(ts))/1000;
+  if (d < 60) return Math.round(d)+'s';
+  if (d < 3600) return Math.round(d/60)+'m';
+  return Math.round(d/3600)+'h '+Math.round((d%3600)/60)+'m';
+}
+
+// ── Pages ─────────────────────────────────────────────────────────────────────
+const pages = {
+  async overview() {
+    const [status, sessions] = await Promise.all([get('/api/v1/status'), get('/api/v1/sessions')]);
+    const totalSent = sessions.reduce((s,x) => s+x.bytes_sent, 0);
+    const totalRecv = sessions.reduce((s,x) => s+x.bytes_recv, 0);
+    document.getElementById('root').innerHTML = `
+      <h2>Overview</h2>
+      <div class="stats">
+        <div class="stat"><div class="stat-label">Status</div><div class="stat-value green">● Online</div></div>
+        <div class="stat"><div class="stat-label">Active Sessions</div><div class="stat-value blue">${sessions.length}</div></div>
+        <div class="stat"><div class="stat-label">Bytes Sent</div><div class="stat-value">${bytes(totalSent)}</div></div>
+        <div class="stat"><div class="stat-label">Bytes Recv</div><div class="stat-value">${bytes(totalRecv)}</div></div>
+        <div class="stat"><div class="stat-label">Devices</div><div class="stat-value">${status.devices}</div></div>
+        <div class="stat"><div class="stat-label">Version</div><div class="stat-value" style="font-size:14px">${status.version}</div></div>
+      </div>
+      <div class="section">
+        <h2>Active Sessions</h2>
+        ${sessionTable(sessions)}
+      </div>`;
+  },
+
+  async sessions() {
+    const sessions = await get('/api/v1/sessions');
+    document.getElementById('root').innerHTML = `
+      <h2>Sessions (${sessions.length} active)</h2>
+      ${sessionTable(sessions)}`;
+  },
+
+  async devices() {
+    const devices = await get('/api/v1/devices');
+    document.getElementById('root').innerHTML = `
+      <h2>Devices (${devices.filter(d=>!d.revoked).length} active)</h2>
+      <table>
+        <thead><tr><th>Device ID</th><th>Label</th><th>Registered</th><th>Last Seen</th><th>Status</th><th></th></tr></thead>
+        <tbody>${devices.map(d => `
+          <tr>
+            <td><span class="pill">${d.device_id}</span></td>
+            <td>${d.label}</td>
+            <td>${ago(d.registered_at)}</td>
+            <td>${d.last_seen_at ? ago(d.last_seen_at) : '—'}</td>
+            <td>${d.revoked ? '<span class="badge err">revoked</span>' : '<span class="badge ok">active</span>'}</td>
+            <td>${d.revoked ? '' : `<button class="danger" onclick="revokeDevice('${d.device_id}')">Revoke</button>`}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  },
+
+  async invites() {
+    const invites = await get('/api/v1/invites');
+    document.getElementById('root').innerHTML = `
+      <div class="toolbar">
+        <h2 style="margin:0">Invites</h2>
+        <button onclick="createInvite()">+ Create Invite</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Label</th><th>Uses</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+        <tbody>${invites.map(i => {
+          const exp = i.expires_at ? new Date(i.expires_at*1000).toLocaleDateString() : '—';
+          const max = i.max_uses||1;
+          return `<tr>
+            <td><span class="pill">${i.token_id}</span></td>
+            <td>${i.label}</td>
+            <td>${i.uses}/${max}</td>
+            <td>${exp}</td>
+            <td>${i.revoked ? '<span class="badge err">revoked</span>' : i.uses>=max ? '<span class="badge muted">used</span>' : '<span class="badge ok">active</span>'}</td>
+            <td>${i.revoked ? '' : `<button class="danger" onclick="revokeInvite('${i.token_id}')">Revoke</button>`}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>`;
+  },
+
+  async analytics() {
+    const stats = await get('/api/v1/transport-stats');
+    document.getElementById('root').innerHTML = `
+      <h2>Transport Analytics</h2>
+      <table>
+        <thead><tr><th>Transport</th><th>Successes</th><th>Failures</th><th>Success Rate</th></tr></thead>
+        <tbody>${stats.map(s => {
+          const total = s.successes + s.failures;
+          const rate = total ? ((s.successes/total)*100).toFixed(1)+'%' : '—';
+          return `<tr><td>${s.transport}</td><td>${s.successes}</td><td>${s.failures}</td><td>${rate}</td></tr>`;
+        }).join('')}
+        </tbody>
+      </table>`;
+  },
+
+  async probes() {
+    const probes = await get('/api/v1/probes');
+    document.getElementById('root').innerHTML = `
+      <h2>Probe Log (${probes.length} events)</h2>
+      <table>
+        <thead><tr><th>Time</th><th>Remote Addr</th><th>Reason</th></tr></thead>
+        <tbody>${probes.map(p => `
+          <tr>
+            <td>${new Date(p.time).toLocaleString()}</td>
+            <td>${p.remote_addr}</td>
+            <td><span class="badge warn">${p.reason}</span></td>
+          </tr>`).join('')||'<tr><td colspan="3" class="empty">No probe events recorded</td></tr>'}
+        </tbody>
+      </table>`;
+  }
+};
+
+function sessionTable(sessions) {
+  if (!sessions.length) return '<div class="empty">No active sessions</div>';
+  return `<table>
+    <thead><tr><th>Session</th><th>Device</th><th>Remote</th><th>Duration</th><th>↑ Sent</th><th>↓ Recv</th><th>Streams</th><th>Auth</th></tr></thead>
+    <tbody>${sessions.map(s => `
+      <tr>
+        <td><span class="pill">${s.session_id.slice(0,8)}</span></td>
+        <td>${s.device_id ? `<span class="pill">${s.device_id}</span> ${s.device_label||''}` : '—'}</td>
+        <td>${s.remote_addr}</td>
+        <td>${dur(s.connected_at)}</td>
+        <td>${bytes(s.bytes_sent)}</td>
+        <td>${bytes(s.bytes_recv)}</td>
+        <td>${s.streams}</td>
+        <td><span class="badge ${s.auth_mode==='device'?'ok':'muted'}">${s.auth_mode}</span></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+async function revokeDevice(id) {
+  if (!confirm(`Revoke device ${id}? This will block all future connections.`)) return;
+  try {
+    await del('/api/v1/devices/'+id);
+    toast('Device '+id+' revoked');
+    render();
+  } catch(e) { toast(e.message, false); }
+}
+
+async function revokeInvite(id) {
+  if (!confirm(`Revoke invite ${id}?`)) return;
+  try {
+    await del('/api/v1/invites/'+id);
+    toast('Invite '+id+' revoked');
+    render();
+  } catch(e) { toast(e.message, false); }
+}
+
+async function createInvite() {
+  const label = prompt('Label for this invite:');
+  if (!label) return;
+  const expiresIn = prompt('Expires in hours (blank = 24h):', '24');
+  const hours = parseInt(expiresIn) || 24;
+  try {
+    const result = await post('/api/v1/invites', {label, expires_hours: hours, max_uses: 1});
+    const link = result.link;
+    prompt('Invite link (copy this):', link);
+    toast('Invite created: '+result.token_id);
+    render();
+  } catch(e) { toast(e.message, false); }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+get('/api/v1/status').then(s => {
+  document.getElementById('ver').textContent = s.version || 'management';
+}).catch(()=>{});
+
+render();
+</script>
+</body>
+</html>

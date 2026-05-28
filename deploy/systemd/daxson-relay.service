@@ -1,0 +1,35 @@
+[Unit]
+Description=Daxson Tunnel Relay
+Documentation=https://github.com/daxson/tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=daxson
+Group=daxson
+
+ExecStart=/usr/local/bin/daxson relay --config /etc/daxson/relay.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=always
+RestartSec=5s
+StartLimitBurst=20
+StartLimitIntervalSec=120
+
+LimitNOFILE=131072
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/daxson
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daxson-relay
+
+[Install]
+WantedBy=multi-user.target

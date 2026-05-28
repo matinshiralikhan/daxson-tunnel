@@ -1,0 +1,41 @@
+mode: server
+
+server:
+  listen: ":443"
+  tls:
+    cert: /etc/letsencrypt/live/yourdomain.com/fullchain.pem
+    key: /etc/letsencrypt/live/yourdomain.com/privkey.pem
+    next_protos:
+      - h2
+      - http/1.1
+  auth:
+    # Generate with: openssl rand -hex 32
+    psk: "REPLACE_WITH_HIGH_ENTROPY_PSK_AT_LEAST_32_CHARS"
+  # Forward unauthenticated connections here (active-probe resistance).
+  # Run nginx on 127.0.0.1:80 serving real website content.
+  probe_upstream: "127.0.0.1:80"
+
+# These are applied when the server acts as a smux peer.
+# Keep in sync with client config.
+tunnel:
+  transport:
+    obfs:
+      enabled: true
+      max_padding: 256
+      write_jitter_max_ms: 8
+      keepalive_interval: "60s"
+      keepalive_jitter: "15s"
+    mux:
+      max_streams: 512
+      max_frame_size: 32768
+      receive_buffer: 4194304
+
+metrics:
+  listen: ":9090"
+
+pprof:
+  listen: ":6060"  # Remove in production or bind to localhost
+
+logging:
+  level: info
+  format: json

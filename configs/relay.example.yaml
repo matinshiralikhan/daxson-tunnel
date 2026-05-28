@@ -1,0 +1,54 @@
+mode: relay
+
+# Downstream: listens for domestic client connections.
+server:
+  listen: ":443"
+  tls:
+    cert: /etc/letsencrypt/live/iran-relay.example.com/fullchain.pem
+    key: /etc/letsencrypt/live/iran-relay.example.com/privkey.pem
+    next_protos:
+      - h2
+      - http/1.1
+  auth:
+    # Different PSK from the upstream — clients authenticate to the relay.
+    psk: "RELAY_DOWNSTREAM_PSK_REPLACE_ME"
+  probe_upstream: "127.0.0.1:80"
+
+# Upstream: the relay connects to the foreign server as a client.
+upstream:
+  addr: "foreign-vps.example.com:443"
+  tls:
+    server_name: "foreign-vps.example.com"
+    fingerprint: "chrome"
+    next_protos:
+      - h2
+      - http/1.1
+  auth:
+    psk: "FOREIGN_SERVER_PSK_REPLACE_ME"
+
+# Transport settings apply to both upstream and downstream connections.
+tunnel:
+  transport:
+    obfs:
+      enabled: true
+      max_padding: 256
+      write_jitter_max_ms: 8
+      keepalive_interval: "60s"
+      keepalive_jitter: "15s"
+    mux:
+      max_streams: 512
+      max_frame_size: 32768
+      receive_buffer: 4194304
+  reconnect:
+    enabled: true
+    max_retries: -1
+    base_delay: "2s"
+    max_delay: "120s"
+    multiplier: 2.0
+
+metrics:
+  listen: ":9090"
+
+logging:
+  level: info
+  format: json
